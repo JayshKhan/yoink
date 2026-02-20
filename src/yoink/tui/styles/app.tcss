@@ -1,0 +1,101 @@
+/* YouTube Downloader TUI Styles */
+
+Screen {
+    background: $background;
+}
+
+Header {
+    dock: top;
+}
+
+Footer {
+    dock: bottom;
+}
+
+/* URL Bar */
+URLBar {
+    dock: top;
+    height: 3;
+    padding: 0 1;
+    background: $surface;
+}
+
+URLBar Input {
+    width: 1fr;
+    border: tall $accent;
+}
+
+URLBar Input:focus {
+    border: tall $accent-lighten-2;
+}
+
+URLBar Button {
+    min-width: 12;
+    margin-left: 1;
+}
+
+/* Download Queue */
+DownloadQueue {
+    dock: bottom;
+    height: auto;
+    min-height: 4;
+    max-height: 50%;
+    border-top: solid $accent;
+    background: $surface;
+}
+
+DownloadQueue .queue-header {
+    padding: 0 1;
+    text-style: bold;
+    color: $accent;
+    background: $surface-darken-1;
+    height: 1;
+}
+
+DownloadItem {
+    height: 3;
+    padding: 0 1;
+    background: $surface;
+}
+
+DownloadItem:hover {
+    background: $surface-lighten-1;
+}
+
+DownloadItem .dl-title {
+    width: 30;
+    color: $text;
+}
+
+DownloadItem ProgressBar {
+    width: 1fr;
+    margin: 0 1;
+}
+
+DownloadItem ProgressBar Bar {
+    color: $success;
+}
+
+DownloadItem .dl-status {
+    width: 22;
+    text-align: right;
+    color: $text-muted;
+}
+
+DownloadItem .dl-cancel {
+    min-width: 5;
+    margin-left: 1;
+}
+
+/* Content Switcher Views */
+#welcome-view {
+    align: center middle;
+}
+
+#loading-view {
+    align: center middle;
+}
+
+#error-view {
+    align: center middle;
+}
