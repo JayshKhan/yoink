@@ -978,8 +978,8 @@ wheels = [
 ]
 
 [[package]]
-name = "yoink"
-version = "0.1.0"
+name = "yoink-yt"
+version = "0.1.1"
 source = { editable = "." }
 dependencies = [
     { name = "mcp", extra = ["cli"] },

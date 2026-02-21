@@ -1,17 +1,18 @@
 [project]
 name = "yoink-yt"
-version = "0.1.0"
-description = "Yoink videos off YouTube. Fast TUI + MCP server."
+version = "0.1.1"
+description = "MCP server that gives AI assistants YouTube download capabilities. Also ships with a terminal UI."
 requires-python = ">=3.10"
 license = {text = "MIT"}
 readme = "README.md"
 authors = [
     {name = "Jaysh Khan"},
 ]
-keywords = ["youtube", "downloader", "tui", "yt-dlp", "mcp"]
+keywords = ["mcp", "youtube", "downloader", "ai-tools", "claude", "yt-dlp", "model-context-protocol", "tui"]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Environment :: Console",
+    "Intended Audience :: Developers",
     "Intended Audience :: End Users/Desktop",
     "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
@@ -20,6 +21,7 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Topic :: Multimedia :: Video",
+    "Topic :: Software Development :: Libraries",
 ]
 dependencies = [
     "yt-dlp>=2024.0.0",
