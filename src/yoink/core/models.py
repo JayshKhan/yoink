@@ -91,16 +91,28 @@ class DownloadProgress(BaseModel):
     eta: int | None = None
     percent: float = 0.0
     error: str | None = None
+    output_path: str | None = None
+
+    @property
+    def size_display(self) -> str:
+        if self.total_bytes > 0:
+            dl = FormatOption._human_size(self.downloaded_bytes)
+            total = FormatOption._human_size(self.total_bytes)
+            return f"{dl} / {total}"
+        if self.downloaded_bytes > 0:
+            return FormatOption._human_size(self.downloaded_bytes)
+        return ""
 
     @property
     def speed_display(self) -> str:
         if self.speed <= 0:
             return ""
+        speed = self.speed
         for unit in ("B/s", "KB/s", "MB/s", "GB/s"):
-            if abs(self.speed) < 1024:
-                return f"{self.speed:.1f} {unit}"
-            self.speed /= 1024
-        return f"{self.speed:.1f} TB/s"
+            if abs(speed) < 1024:
+                return f"{speed:.1f} {unit}"
+            speed /= 1024
+        return f"{speed:.1f} TB/s"
 
     @property
     def eta_display(self) -> str:
@@ -118,3 +130,7 @@ class DownloadRequest(BaseModel):
     output_dir: str = str(Path.home() / "Downloads")
     output_template: str = "%(title)s.%(ext)s"
     download_id: str = Field(default_factory=lambda: uuid.uuid4().hex[:12])
+    speed_limit: int | None = None
+    download_subtitles: bool = False
+    subtitle_lang: str = "en"
+    convert_to_mp3: bool = False

@@ -2,8 +2,10 @@ from __future__ import annotations
 
 import argparse
 import shutil
+from pathlib import Path
 
 from textual.app import App, ComposeResult
+from textual.reactive import reactive
 from textual.widgets import Footer, Header
 
 from yoink.core.manager import DownloadManager
@@ -22,6 +24,8 @@ class YoinkApp(App):
         ("q", "quit", "Quit"),
         ("ctrl+c", "quit", "Quit"),
     ]
+
+    output_dir: reactive[str] = reactive(str(Path.home() / "Downloads"))
 
     def __init__(self, max_concurrent: int = 3) -> None:
         super().__init__()

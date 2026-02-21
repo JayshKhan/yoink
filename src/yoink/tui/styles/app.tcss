@@ -1,4 +1,4 @@
-/* YouTube Downloader TUI Styles */
+/* Yoink TUI Styles */
 
 Screen {
     background: $background;
@@ -15,7 +15,7 @@ Footer {
 /* URL Bar */
 URLBar {
     dock: top;
-    height: 3;
+    height: auto;
     padding: 0 1;
     background: $surface;
 }
@@ -44,7 +44,7 @@ DownloadQueue {
     background: $surface;
 }
 
-DownloadQueue .queue-header {
+DownloadQueue #queue-header {
     padding: 0 1;
     text-style: bold;
     color: $accent;
@@ -77,13 +77,13 @@ DownloadItem ProgressBar Bar {
 }
 
 DownloadItem .dl-status {
-    width: 22;
+    width: 30;
     text-align: right;
     color: $text-muted;
 }
 
 DownloadItem .dl-cancel {
-    min-width: 5;
+    min-width: 8;
     margin-left: 1;
 }
 

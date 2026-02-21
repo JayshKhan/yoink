@@ -45,6 +45,8 @@ async def start_download(
         output_dir=output_dir,
     )
     download_id = manager.start_download(request)
+    if download_id is None:
+        return {"error": "This URL is already being downloaded"}
     return {"download_id": download_id, "status": "started"}
 
 

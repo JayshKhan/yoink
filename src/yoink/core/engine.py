@@ -7,6 +7,7 @@ from pathlib import Path
 
 import yt_dlp
 
+from .errors import friendly_error
 from .models import DownloadProgress, DownloadRequest, DownloadStatus
 
 
@@ -37,8 +38,12 @@ class DownloadEngine:
         output_dir.mkdir(parents=True, exist_ok=True)
         outtmpl = str(output_dir / self.request.output_template)
 
-        ydl_opts = {
-            "format": self.request.format_string,
+        format_string = self.request.format_string
+        if self.request.convert_to_mp3:
+            format_string = "bestaudio[ext=m4a]/bestaudio/best"
+
+        ydl_opts: dict = {
+            "format": format_string,
             "outtmpl": outtmpl,
             "quiet": True,
             "no_warnings": True,
@@ -47,6 +52,22 @@ class DownloadEngine:
             "postprocessor_hooks": [self._postprocessor_hook],
             "noprogress": True,
         }
+
+        if self.request.speed_limit:
+            ydl_opts["ratelimit"] = self.request.speed_limit
+
+        if self.request.download_subtitles:
+            ydl_opts["writesubtitles"] = True
+            ydl_opts["writeautomaticsub"] = True
+            ydl_opts["subtitleslangs"] = [self.request.subtitle_lang]
+
+        if self.request.convert_to_mp3:
+            ydl_opts.setdefault("postprocessors", [])
+            ydl_opts["postprocessors"].append({
+                "key": "FFmpegExtractAudio",
+                "preferredcodec": "mp3",
+                "preferredquality": "192",
+            })
 
         try:
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
@@ -63,7 +84,7 @@ class DownloadEngine:
             self._update_status(DownloadStatus.CANCELLED)
             self._emit_progress(force=True)
         except Exception as e:
-            self._progress.error = str(e)
+            self._progress.error = friendly_error(str(e))
             self._update_status(DownloadStatus.ERROR)
             self._emit_progress(force=True)
 
@@ -95,6 +116,9 @@ class DownloadEngine:
                 )
             self._emit_progress()
         elif status == "finished":
+            filepath = d.get("filename") or d.get("info_dict", {}).get("filepath")
+            if filepath:
+                self._progress.output_path = str(filepath)
             self._progress.percent = 100.0
             self._progress.status = DownloadStatus.MERGING
             self._emit_progress(force=True)
@@ -106,6 +130,10 @@ class DownloadEngine:
         if status == "started":
             self._progress.status = DownloadStatus.MERGING
             self._emit_progress(force=True)
+        elif status == "finished":
+            filepath = d.get("info_dict", {}).get("filepath")
+            if filepath:
+                self._progress.output_path = str(filepath)
 
     def _update_status(self, status: DownloadStatus) -> None:
         self._progress.status = status
