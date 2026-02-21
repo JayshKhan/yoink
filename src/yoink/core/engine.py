@@ -42,6 +42,7 @@ class DownloadEngine:
             "outtmpl": outtmpl,
             "quiet": True,
             "no_warnings": True,
+            "continuedl": True,
             "progress_hooks": [self._progress_hook],
             "postprocessor_hooks": [self._postprocessor_hook],
             "noprogress": True,

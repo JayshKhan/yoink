@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import threading
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
 
@@ -19,10 +20,28 @@ class DownloadManager:
     """Orchestrates concurrent downloads and metadata extraction."""
 
     def __init__(self, max_concurrent: int = 3):
-        self._executor = ThreadPoolExecutor(max_workers=max_concurrent)
+        self._max_concurrent = max_concurrent
+        self._semaphore = threading.Semaphore(max_concurrent)
+        self._executor = ThreadPoolExecutor(max_workers=10)
         self._extractor = MetadataExtractor()
         self._engines: dict[str, DownloadEngine] = {}
         self._progress: dict[str, DownloadProgress] = {}
+
+    @property
+    def max_concurrent(self) -> int:
+        return self._max_concurrent
+
+    @max_concurrent.setter
+    def max_concurrent(self, value: int) -> None:
+        value = max(1, min(value, 10))
+        diff = value - self._max_concurrent
+        self._max_concurrent = value
+        if diff > 0:
+            for _ in range(diff):
+                self._semaphore.release()
+        elif diff < 0:
+            for _ in range(-diff):
+                self._semaphore.acquire(blocking=False)
 
     # -- Async metadata wrappers (run sync yt-dlp in thread pool) --
 
@@ -67,8 +86,15 @@ class DownloadManager:
         engine = DownloadEngine(request, callback=_on_progress)
         self._engines[download_id] = engine
         self._progress[download_id] = DownloadProgress(download_id=download_id)
-        self._executor.submit(engine.run)
+        self._executor.submit(self._run_with_semaphore, engine)
         return download_id
+
+    def _run_with_semaphore(self, engine: DownloadEngine) -> None:
+        self._semaphore.acquire()
+        try:
+            engine.run()
+        finally:
+            self._semaphore.release()
 
     def get_progress(self, download_id: str) -> DownloadProgress | None:
         return self._progress.get(download_id)

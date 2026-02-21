@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import argparse
 import shutil
 
 from textual.app import App, ComposeResult
@@ -8,12 +9,6 @@ from textual.widgets import Footer, Header
 from yoink.core.manager import DownloadManager
 
 from .screens.main_screen import MainScreen
-
-LOGO = """\
-[bold red]╭──╮[/]  [bold white]yoink[/]
-[bold red]│▶ │[/]  [dim]grab videos, fast[/dim]
-[bold red]╰──╯[/]\
-"""
 
 
 class YoinkApp(App):
@@ -28,9 +23,9 @@ class YoinkApp(App):
         ("ctrl+c", "quit", "Quit"),
     ]
 
-    def __init__(self) -> None:
+    def __init__(self, max_concurrent: int = 3) -> None:
         super().__init__()
-        self.manager = DownloadManager(max_concurrent=3)
+        self.manager = DownloadManager(max_concurrent=max_concurrent)
 
     def compose(self) -> ComposeResult:
         yield Header()
@@ -50,7 +45,21 @@ class YoinkApp(App):
 
 
 def main() -> None:
-    app = YoinkApp()
+    parser = argparse.ArgumentParser(
+        prog="yoink",
+        description="Grab videos off YouTube.",
+    )
+    parser.add_argument(
+        "-j", "--jobs",
+        type=int,
+        default=3,
+        metavar="N",
+        help="max simultaneous downloads (default: 3, range: 1-10)",
+    )
+    args = parser.parse_args()
+    jobs = max(1, min(args.jobs, 10))
+
+    app = YoinkApp(max_concurrent=jobs)
     app.run()
 
 
