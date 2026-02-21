@@ -18,7 +18,11 @@
 </p>
 
 <p align="center">
-  <code>pip install yoink</code>&nbsp;&nbsp;&middot;&nbsp;&nbsp;<code>uv run yoink</code>&nbsp;&nbsp;&middot;&nbsp;&nbsp;<a href="#-mcp-server">MCP Server</a>&nbsp;&nbsp;&middot;&nbsp;&nbsp;<a href="#-architecture">Docs</a>
+  <a href="https://pypi.org/project/yoink-yt/"><img src="https://img.shields.io/pypi/v/yoink-yt?style=flat-square&label=PyPI" alt="PyPI"></a>
+</p>
+
+<p align="center">
+  <code>pip install yoink-yt</code>&nbsp;&nbsp;&middot;&nbsp;&nbsp;<code>uv run yoink</code>&nbsp;&nbsp;&middot;&nbsp;&nbsp;<a href="#-mcp-server">MCP Server</a>&nbsp;&nbsp;&middot;&nbsp;&nbsp;<a href="#-architecture">Docs</a>
 </p>
 
 ---
@@ -64,9 +68,18 @@ All three share the same core engine powered by [yt-dlp](https://github.com/yt-d
 ## &#9889; Quick Start
 
 ```bash
-git clone https://github.com/yourname/yoink.git
-cd yoink
-uv sync
+# Install from PyPI
+pip install yoink-yt
+
+# Launch
+yoink
+```
+
+Or install from source:
+
+```bash
+git clone https://github.com/JayshKhan/yoink.git
+cd yoink && uv sync
 uv run yoink
 ```
 
