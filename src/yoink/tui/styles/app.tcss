@@ -15,7 +15,7 @@ Footer {
 /* URL Bar */
 URLBar {
     dock: top;
-    height: auto;
+    height: 3;
     padding: 0 1;
     background: $surface;
 }
@@ -46,10 +46,8 @@ DownloadQueue {
 
 DownloadQueue #queue-header {
     padding: 0 1;
-    text-style: bold;
-    color: $accent;
     background: $surface-darken-1;
-    height: 1;
+    height: 3;
 }
 
 DownloadItem {
@@ -77,7 +75,7 @@ DownloadItem ProgressBar Bar {
 }
 
 DownloadItem .dl-status {
-    width: 30;
+    width: 20;
     text-align: right;
     color: $text-muted;
 }

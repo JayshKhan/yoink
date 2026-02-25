@@ -1,19 +1,10 @@
 from __future__ import annotations
 
 from textual.app import ComposeResult
-from textual.containers import Horizontal
+from textual.containers import Horizontal, Vertical, VerticalScroll
 from textual.message import Message
 from textual.widget import Widget
-from textual.widgets import (
-    Button,
-    Checkbox,
-    Collapsible,
-    DataTable,
-    Input,
-    Label,
-    Select,
-    Static,
-)
+from textual.widgets import Button, DataTable, Label, Select, Static
 
 from yoink.core.models import FormatOption, VideoInfo
 
@@ -22,19 +13,9 @@ class VideoInfoPanel(Widget):
     """Displays video metadata, quality picker, and download button."""
 
     class DownloadRequested(Message):
-        def __init__(
-            self,
-            video_info: VideoInfo,
-            format_option: FormatOption,
-            download_subtitles: bool = False,
-            convert_to_mp3: bool = False,
-            output_template: str = "%(title)s.%(ext)s",
-        ) -> None:
+        def __init__(self, video_info: VideoInfo, format_option: FormatOption) -> None:
             self.video_info = video_info
             self.format_option = format_option
-            self.download_subtitles = download_subtitles
-            self.convert_to_mp3 = convert_to_mp3
-            self.output_template = output_template
             super().__init__()
 
     DEFAULT_CSS = """
@@ -60,29 +41,9 @@ class VideoInfoPanel(Widget):
     VideoInfoPanel #quality-select {
         width: 1fr;
     }
-    VideoInfoPanel #btn-row {
-        height: 3;
-        margin-top: 1;
-    }
-    VideoInfoPanel #btn-row Button {
-        width: 1fr;
-        margin-right: 1;
-    }
-    VideoInfoPanel #btn-row #audio-only-btn {
-        margin-right: 0;
-    }
-    VideoInfoPanel #options-row {
-        height: auto;
-        margin-top: 1;
-    }
-    VideoInfoPanel #options-row Checkbox {
-        margin-right: 2;
-    }
-    VideoInfoPanel Collapsible {
-        margin-top: 1;
-    }
-    VideoInfoPanel #output-template-input {
+    VideoInfoPanel #download-video-btn {
         width: 100%;
+        margin-top: 1;
     }
     VideoInfoPanel #format-details {
         height: auto;
@@ -102,22 +63,9 @@ class VideoInfoPanel(Widget):
         with Horizontal(id="quality-row"):
             yield Label("Quality:")
             yield Select([], id="quality-select", prompt="Select quality")
-        with Horizontal(id="btn-row"):
-            yield Button(
-                "\u2b07 Download", variant="success", id="download-video-btn", disabled=True
-            )
-            yield Button(
-                "\u266b Audio Only", variant="primary", id="audio-only-btn", disabled=True
-            )
-        with Horizontal(id="options-row"):
-            yield Checkbox("Subtitles", id="subtitles-cb")
-            yield Checkbox("Convert to MP3", id="mp3-cb")
-        with Collapsible(title="Advanced Settings", collapsed=True):
-            yield Input(
-                "%(title)s.%(ext)s",
-                placeholder="Output template...",
-                id="output-template-input",
-            )
+        yield Button(
+            "\u2b07 Download", variant="success", id="download-video-btn", disabled=True
+        )
         yield DataTable(id="format-details", cursor_type="row")
 
     def on_mount(self) -> None:
@@ -188,17 +136,12 @@ class VideoInfoPanel(Widget):
                 key=fmt.format_id,
             )
 
-        has_formats = len(self._formats) > 0
-        self.query_one("#download-video-btn", Button).disabled = not has_formats
-        self.query_one("#audio-only-btn", Button).disabled = not has_formats
+        btn = self.query_one("#download-video-btn", Button)
+        btn.disabled = len(self._formats) == 0
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
-        if event.button.id == "download-video-btn":
-            self._do_download()
-        elif event.button.id == "audio-only-btn":
-            self._do_audio_only()
-
-    def _do_download(self) -> None:
+        if event.button.id != "download-video-btn":
+            return
         if self._video_info is None:
             return
         select = self.query_one("#quality-select", Select)
@@ -206,35 +149,4 @@ class VideoInfoPanel(Widget):
             idx = int(select.value)
             if idx < len(self._formats):
                 fmt = self._formats[idx]
-                template = self.query_one("#output-template-input", Input).value.strip()
-                self.post_message(
-                    self.DownloadRequested(
-                        self._video_info,
-                        fmt,
-                        download_subtitles=self.query_one("#subtitles-cb", Checkbox).value,
-                        convert_to_mp3=self.query_one("#mp3-cb", Checkbox).value,
-                        output_template=template or "%(title)s.%(ext)s",
-                    )
-                )
-
-    def _do_audio_only(self) -> None:
-        if self._video_info is None:
-            return
-        audio_fmt = FormatOption(
-            format_id="bestaudio[ext=m4a]/bestaudio",
-            format_note="Audio Only",
-            has_audio=True,
-        )
-        template = self.query_one("#output-template-input", Input).value.strip()
-        self.post_message(
-            self.DownloadRequested(
-                self._video_info,
-                audio_fmt,
-                download_subtitles=self.query_one("#subtitles-cb", Checkbox).value,
-                convert_to_mp3=self.query_one("#mp3-cb", Checkbox).value,
-                output_template=template or "%(title)s.%(ext)s",
-            )
-        )
-
-    def action_download(self) -> None:
-        self._do_download()
+                self.post_message(self.DownloadRequested(self._video_info, fmt))

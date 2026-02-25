@@ -1,12 +1,9 @@
 from __future__ import annotations
 
-import re
-import uuid
-
 from textual.app import ComposeResult
 from textual.containers import Horizontal, VerticalScroll
 from textual.widget import Widget
-from textual.widgets import Button, Input, Label
+from textual.widgets import Button, Label
 
 from yoink.core.manager import DownloadManager
 from yoink.core.models import DownloadProgress, DownloadRequest
@@ -47,11 +44,6 @@ class DownloadQueue(Widget):
         max-width: 3;
         margin: 0;
     }
-    DownloadQueue #speed-limit-input {
-        width: 10;
-        margin-left: 1;
-        margin-right: 1;
-    }
     DownloadQueue VerticalScroll {
         height: auto;
         max-height: 100%;
@@ -62,104 +54,50 @@ class DownloadQueue(Widget):
         super().__init__()
         self.manager = manager
         self._items: dict[str, DownloadItem] = {}
-        self._requests: dict[str, DownloadRequest] = {}
-        self._speed_limit: int | None = None
 
     def compose(self) -> ComposeResult:
         with Horizontal(id="queue-header"):
             yield Label("Downloads", classes="queue-title")
-            yield Input(placeholder="Speed (e.g. 5M)", id="speed-limit-input")
-            yield Label(self._slots_text(), id="slots-label", classes="slots-label")
+            yield Label(
+                f"Slots: {self.manager.max_concurrent}",
+                id="slots-label",
+                classes="slots-label",
+            )
             yield Button("-", id="slots-down", variant="default")
             yield Button("+", id="slots-up", variant="default")
         yield VerticalScroll(id="download-list")
 
-    def _slots_text(self) -> str:
-        active = self.manager.active_count
-        limit = self.manager.max_concurrent
-        queued = self.manager.queued_count
-        text = f"[{active}/{limit}]"
-        if queued > 0:
-            text += f" {queued} waiting"
-        return text
-
     def _update_slots_label(self) -> None:
         label = self.query_one("#slots-label", Label)
-        label.update(self._slots_text())
-
-    def on_input_changed(self, event: Input.Changed) -> None:
-        if event.input.id == "speed-limit-input":
-            self._speed_limit = self._parse_speed(event.value.strip())
-
-    @staticmethod
-    def _parse_speed(value: str) -> int | None:
-        if not value:
-            return None
-        match = re.match(r"^(\d+(?:\.\d+)?)\s*([kmg])?b?/?s?$", value, re.I)
-        if not match:
-            return None
-        num = float(match.group(1))
-        unit = (match.group(2) or "").upper()
-        multipliers = {"": 1, "K": 1024, "M": 1024 ** 2, "G": 1024 ** 3}
-        return int(num * multipliers.get(unit, 1))
+        label.update(f"Slots: {self.manager.max_concurrent}")
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
         if event.button.id == "slots-up":
             self.manager.max_concurrent += 1
             self._update_slots_label()
+            self.notify(f"Max concurrent: {self.manager.max_concurrent}")
         elif event.button.id == "slots-down":
             self.manager.max_concurrent -= 1
             self._update_slots_label()
+            self.notify(f"Max concurrent: {self.manager.max_concurrent}")
 
-    def add_download(self, request: DownloadRequest, title: str = "") -> str | None:
-        if self._speed_limit:
-            request = request.model_copy(update={"speed_limit": self._speed_limit})
-
-        def _on_progress(progress: DownloadProgress) -> None:
-            self.app.call_from_thread(self._on_progress_update, progress)
-
-        result = self.manager.start_download(request, callback=_on_progress)
-        if result is None:
-            self.notify("Already downloading this URL", severity="warning")
-            return None
-
+    def add_download(self, request: DownloadRequest, title: str = "") -> str:
         item = DownloadItem(download_id=request.download_id, title=title)
         self._items[request.download_id] = item
-        self._requests[request.download_id] = request
         self.query_one("#download-list", VerticalScroll).mount(item)
-        self._update_slots_label()
+
+        def _on_progress(progress: DownloadProgress) -> None:
+            self.app.call_from_thread(self._update_item, progress)
+
+        self.manager.start_download(request, callback=_on_progress)
         return request.download_id
 
-    def _on_progress_update(self, progress: DownloadProgress) -> None:
+    def _update_item(self, progress: DownloadProgress) -> None:
         item = self._items.get(progress.download_id)
         if item:
             item.update_progress(progress)
-        self._update_slots_label()
 
     def on_download_item_cancel_requested(
         self, event: DownloadItem.CancelRequested
     ) -> None:
         self.manager.cancel_download(event.download_id)
-
-    def on_download_item_retry_requested(
-        self, event: DownloadItem.RetryRequested
-    ) -> None:
-        old_request = self._requests.get(event.download_id)
-        if old_request is None:
-            return
-
-        new_id = uuid.uuid4().hex[:12]
-        new_request = old_request.model_copy(update={"download_id": new_id})
-
-        # Reuse the existing item widget
-        item = self._items.pop(event.download_id)
-        item.download_id = new_id
-        item.reset_for_retry()
-        self._items[new_id] = item
-        self._requests[new_id] = new_request
-
-        def _on_progress(progress: DownloadProgress) -> None:
-            self.app.call_from_thread(self._on_progress_update, progress)
-
-        self.manager.start_download(new_request, callback=_on_progress, force=True)
-        self._update_slots_label()

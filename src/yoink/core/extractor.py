@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import yt_dlp
 
-from .models import FormatOption, PlaylistInfo, VideoInfo
+from .models import FetchResult, FormatOption, PlaylistInfo, VideoInfo
 
 
 class MetadataExtractor:
@@ -13,6 +13,48 @@ class MetadataExtractor:
         "no_warnings": True,
         "extract_flat": False,
     }
+
+    def fetch(self, url: str) -> FetchResult:
+        """Single extraction that returns VideoInfo or PlaylistInfo."""
+        opts = {**self._ydl_opts, "extract_flat": "in_playlist"}
+        with yt_dlp.YoutubeDL(opts) as ydl:
+            info = ydl.extract_info(url, download=False)
+        if info is None:
+            raise ValueError(f"Could not extract info for {url}")
+
+        if info.get("_type") == "playlist":
+            videos = []
+            for entry in info.get("entries", []) or []:
+                if entry is None:
+                    continue
+                videos.append(
+                    VideoInfo(
+                        video_id=entry.get("id", ""),
+                        title=entry.get("title", "Unknown"),
+                        url=entry.get("url", ""),
+                        duration=entry.get("duration"),
+                    )
+                )
+            return PlaylistInfo(
+                playlist_id=info.get("id", ""),
+                title=info.get("title", "Unknown Playlist"),
+                url=url,
+                video_count=len(videos),
+                videos=videos,
+            )
+
+        formats = self._parse_formats(info.get("formats", []))
+        return VideoInfo(
+            video_id=info.get("id", ""),
+            title=info.get("title", "Unknown"),
+            url=url,
+            duration=info.get("duration"),
+            thumbnail=info.get("thumbnail"),
+            uploader=info.get("uploader"),
+            view_count=info.get("view_count"),
+            description=info.get("description"),
+            formats=formats,
+        )
 
     def extract_video_info(self, url: str) -> VideoInfo:
         with yt_dlp.YoutubeDL(self._ydl_opts) as ydl:

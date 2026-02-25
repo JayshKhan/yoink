@@ -1,11 +1,11 @@
 from __future__ import annotations
 
 import argparse
+import logging
 import shutil
 from pathlib import Path
 
 from textual.app import App, ComposeResult
-from textual.reactive import reactive
 from textual.widgets import Footer, Header
 
 from yoink.core.manager import DownloadManager
@@ -24,8 +24,6 @@ class YoinkApp(App):
         ("q", "quit", "Quit"),
         ("ctrl+c", "quit", "Quit"),
     ]
-
-    output_dir: reactive[str] = reactive(str(Path.home() / "Downloads"))
 
     def __init__(self, max_concurrent: int = 3) -> None:
         super().__init__()
@@ -62,6 +60,13 @@ def main() -> None:
     )
     args = parser.parse_args()
     jobs = max(1, min(args.jobs, 10))
+
+    logging.basicConfig(
+        filename=str(Path.home() / "yoink_debug.log"),
+        level=logging.DEBUG,
+        format="%(asctime)s %(name)s %(levelname)s %(message)s",
+    )
+    logging.getLogger("yoink").info("=== yoink starting ===")
 
     app = YoinkApp(max_concurrent=jobs)
     app.run()

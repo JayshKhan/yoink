@@ -1,16 +1,27 @@
 from __future__ import annotations
 
+import re
+from pathlib import Path
+
 from textual.app import ComposeResult
 from textual.containers import Container
 from textual.screen import Screen
-from textual.widgets import Button, ContentSwitcher, Static
+from textual.widgets import ContentSwitcher, Static
 from textual import work
 
 from yoink.core.manager import DownloadManager
 from yoink.core.models import DownloadRequest, FormatOption, PlaylistInfo, VideoInfo
 
+_DOWNLOADS = str(Path.home() / "Downloads")
+
+
+def _safe_dirname(title: str) -> str:
+    """Sanitize a title for use as a directory name."""
+    name = re.sub(r'[<>:"/\\|?*]', "_", title)
+    name = name.strip(". ")
+    return name[:200] or "download"
+
 from ..logo import LOGO
-from ..widgets.download_item import DownloadItem
 from ..widgets.download_queue import DownloadQueue
 from ..widgets.playlist_panel import PlaylistPanel
 from ..widgets.url_bar import URLBar
@@ -56,12 +67,6 @@ class MainScreen(Screen):
     }
     """
 
-    BINDINGS = [
-        ("slash", "focus_url", "Focus URL"),
-        ("d", "download", "Download"),
-        ("r", "retry_last", "Retry Last"),
-    ]
-
     def __init__(self, manager: DownloadManager) -> None:
         super().__init__()
         self.manager = manager
@@ -86,11 +91,8 @@ class MainScreen(Screen):
                 yield Static("", classes="error-text", id="error-text")
         yield DownloadQueue(self.manager)
 
-    def on_url_bar_submitted(self, event: URLBar.Submitted) -> None:
+    def on_urlbar_submitted(self, event: URLBar.Submitted) -> None:
         self._fetch_url(event.url)
-
-    def on_url_bar_output_dir_changed(self, event: URLBar.OutputDirChanged) -> None:
-        self.app.output_dir = event.path
 
     @property
     def _switcher(self) -> ContentSwitcher:
@@ -131,89 +133,44 @@ class MainScreen(Screen):
         error_text.update(f"[bold red]Error:[/bold red] {message}")
         self._switcher.current = "error-view"
 
-    # -- Keyboard shortcuts --
-
-    def action_focus_url(self) -> None:
-        from textual.widgets import Input
-        url_bar = self.query_one(URLBar)
-        url_input = url_bar.query_one("#url-input", Input)
-        url_input.focus()
-
-    def action_download(self) -> None:
-        current = self._switcher.current
-        if current == "video-view":
-            panel = self.query_one(VideoInfoPanel)
-            panel.action_download()
-        elif current == "playlist-view":
-            panel = self.query_one(PlaylistPanel)
-            panel.action_download()
-
-    def action_retry_last(self) -> None:
-        queue = self.query_one(DownloadQueue)
-        # Find the last failed/cancelled item and retry it
-        for download_id in reversed(list(queue._items)):
-            item = queue._items[download_id]
-            btn = item.query_one(".dl-cancel", Button)
-            if str(btn.label) == "Retry":
-                item.post_message(DownloadItem.RetryRequested(download_id))
-                break
-
     # -- Single video download --
 
     def on_video_info_panel_download_requested(
         self, event: VideoInfoPanel.DownloadRequested
     ) -> None:
-        self._start_video_download(
-            event.video_info,
-            event.format_option,
-            download_subtitles=event.download_subtitles,
-            convert_to_mp3=event.convert_to_mp3,
-            output_template=event.output_template,
-        )
+        self._start_video_download(event.video_info, event.format_option)
 
-    def _start_video_download(
-        self,
-        video: VideoInfo,
-        fmt: FormatOption,
-        download_subtitles: bool = False,
-        convert_to_mp3: bool = False,
-        output_template: str = "%(title)s.%(ext)s",
-    ) -> None:
+    def _start_video_download(self, video: VideoInfo, fmt: FormatOption) -> None:
         if fmt.has_video and not fmt.has_audio:
             format_string = f"{fmt.format_id}+bestaudio"
         else:
             format_string = fmt.format_id
 
+        output_dir = str(Path(_DOWNLOADS) / _safe_dirname(video.title))
         request = DownloadRequest(
             url=video.url,
             format_string=format_string,
-            output_dir=self.app.output_dir,
-            output_template=output_template,
-            download_subtitles=download_subtitles,
-            convert_to_mp3=convert_to_mp3,
+            output_dir=output_dir,
         )
         queue = self.query_one(DownloadQueue)
-        result = queue.add_download(request, title=video.title)
-        if result is not None:
-            self.notify(f"Started: {video.title}")
+        queue.add_download(request, title=video.title)
+        self.notify(f"Started: {video.title}")
 
     # -- Playlist download --
 
     def on_playlist_panel_download_videos_requested(
         self, event: PlaylistPanel.DownloadVideosRequested
     ) -> None:
+        playlist_dir = str(
+            Path(_DOWNLOADS) / _safe_dirname(self._current_playlist.title)
+        ) if self._current_playlist else _DOWNLOADS
+
         queue = self.query_one(DownloadQueue)
-        count = 0
         for video in event.videos:
             request = DownloadRequest(
                 url=f"https://www.youtube.com/watch?v={video.video_id}",
                 format_string=event.quality,
-                output_dir=self.app.output_dir,
-                output_template=event.output_template,
-                download_subtitles=event.download_subtitles,
+                output_dir=playlist_dir,
             )
-            result = queue.add_download(request, title=video.title)
-            if result is not None:
-                count += 1
-        if count:
-            self.notify(f"Queued {count} downloads")
+            queue.add_download(request, title=video.title)
+        self.notify(f"Queued {len(event.videos)} downloads")

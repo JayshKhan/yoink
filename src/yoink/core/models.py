@@ -81,6 +81,9 @@ class PlaylistInfo(BaseModel):
     videos: list[VideoInfo] = Field(default_factory=list)
 
 
+FetchResult = VideoInfo | PlaylistInfo
+
+
 class DownloadProgress(BaseModel):
     download_id: str
     status: DownloadStatus = DownloadStatus.QUEUED
