@@ -1,6 +1,6 @@
 [project]
 name = "yoink-yt"
-version = "0.1.1"
+version = "0.1.2"
 description = "MCP server that gives AI assistants YouTube download capabilities. Also ships with a terminal UI."
 requires-python = ">=3.10"
 license = {text = "MIT"}
