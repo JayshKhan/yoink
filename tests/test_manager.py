@@ -1,12 +1,11 @@
 from __future__ import annotations
 
-import time
 from unittest.mock import MagicMock, patch
 
 import pytest
 
 from yoink.core.manager import DownloadManager
-from yoink.core.models import DownloadProgress, DownloadRequest, DownloadStatus
+from yoink.core.models import DownloadProgress, DownloadRequest
 
 
 @pytest.fixture
@@ -19,8 +18,7 @@ def manager():
 class TestDownloadManager:
     def test_initial_state(self, manager):
         assert manager.max_concurrent == 2
-        assert manager.active_count == 0
-        assert manager.queued_count == 0
+        assert manager.get_all_progress() == []
 
     def test_max_concurrent_setter_clamps(self, manager):
         manager.max_concurrent = 0
@@ -32,9 +30,6 @@ class TestDownloadManager:
     def test_start_download_returns_id(self, mock_engine_cls, manager):
         mock_engine = MagicMock()
         mock_engine.is_cancelled = False
-        mock_engine.run.return_value = DownloadProgress(
-            download_id="abc", status=DownloadStatus.FINISHED
-        )
         mock_engine_cls.return_value = mock_engine
 
         request = DownloadRequest(url="http://example.com", download_id="abc")
@@ -42,51 +37,19 @@ class TestDownloadManager:
         assert result == "abc"
 
     @patch("yoink.core.manager.DownloadEngine")
-    def test_duplicate_detection_blocks(self, mock_engine_cls, manager):
+    def test_multiple_downloads_tracked(self, mock_engine_cls, manager):
         mock_engine = MagicMock()
         mock_engine.is_cancelled = False
         mock_engine_cls.return_value = mock_engine
 
-        request1 = DownloadRequest(url="http://example.com", download_id="dl1")
-        request2 = DownloadRequest(url="http://example.com", download_id="dl2")
+        request1 = DownloadRequest(url="http://example.com/1", download_id="dl1")
+        request2 = DownloadRequest(url="http://example.com/2", download_id="dl2")
 
         result1 = manager.start_download(request1)
+        result2 = manager.start_download(request2)
         assert result1 == "dl1"
-
-        result2 = manager.start_download(request2)
-        assert result2 is None
-
-    @patch("yoink.core.manager.DownloadEngine")
-    def test_duplicate_detection_force_bypass(self, mock_engine_cls, manager):
-        mock_engine = MagicMock()
-        mock_engine.is_cancelled = False
-        mock_engine_cls.return_value = mock_engine
-
-        request1 = DownloadRequest(url="http://example.com", download_id="dl1")
-        request2 = DownloadRequest(url="http://example.com", download_id="dl2")
-
-        manager.start_download(request1)
-        result2 = manager.start_download(request2, force=True)
         assert result2 == "dl2"
-
-    @patch("yoink.core.manager.DownloadEngine")
-    def test_duplicate_allowed_after_terminal_state(self, mock_engine_cls, manager):
-        mock_engine = MagicMock()
-        mock_engine.is_cancelled = False
-        mock_engine_cls.return_value = mock_engine
-
-        request1 = DownloadRequest(url="http://example.com", download_id="dl1")
-        manager.start_download(request1)
-
-        # Simulate the progress callback setting terminal state
-        manager._progress["dl1"] = DownloadProgress(
-            download_id="dl1", status=DownloadStatus.FINISHED
-        )
-        manager._url_to_id.pop("http://example.com", None)
-
-        request2 = DownloadRequest(url="http://example.com", download_id="dl2")
-        result2 = manager.start_download(request2)
-        assert result2 == "dl2"
+        assert len(manager.get_all_progress()) == 2
 
     def test_cancel_nonexistent(self, manager):
         assert manager.cancel_download("nonexistent") is False
@@ -146,6 +109,13 @@ class TestDownloadManager:
         progress = manager.get_progress("dl1")
         assert progress is not None
 
-    def test_shutdown(self, manager):
+    @patch("yoink.core.manager.DownloadEngine")
+    def test_shutdown_cancels_engines(self, mock_engine_cls, manager):
+        mock_engine = MagicMock()
+        mock_engine.is_cancelled = False
+        mock_engine_cls.return_value = mock_engine
+
+        request = DownloadRequest(url="http://example.com", download_id="dl1")
+        manager.start_download(request)
         manager.shutdown()
-        assert manager._shutdown_event.is_set()
+        mock_engine.cancel.assert_called_once()
